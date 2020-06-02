@@ -8,16 +8,8 @@ module Styles = {
 
   let fillLeft = style([marginLeft(`auto)]);
 
-  let topPartWrapper =
-    style([
-      width(`percent(100.0)),
-      display(`flex),
-      flexDirection(`column),
-      backgroundColor(Colors.white),
-      borderRadius(`px(4)),
-      padding2(~v=`px(35), ~h=`px(30)),
-      boxShadow(Shadow.box(~x=`zero, ~y=`px(2), ~blur=`px(8), Css.rgba(0, 0, 0, 0.08))),
-    ]);
+  let header =
+    style([display(`flex), flexDirection(`row), alignItems(`center), height(`px(50))]);
 
   let fullWidth = dir => style([width(`percent(100.0)), display(`flex), flexDirection(dir)]);
 
@@ -39,6 +31,17 @@ module Styles = {
       marginBottom(`px(45)),
     ]);
 
+  let topPartWrapper =
+    style([
+      width(`percent(100.0)),
+      display(`flex),
+      flexDirection(`column),
+      backgroundColor(Colors.white),
+      borderRadius(`px(4)),
+      padding2(~v=`px(35), ~h=`px(30)),
+      boxShadow(Shadow.box(~x=`zero, ~y=`px(2), ~blur=`px(8), Css.rgba(0, 0, 0, 0.08))),
+    ]);
+
   let underline = style([textDecoration(`underline), color(Colors.gray7)]);
 };
 
@@ -48,7 +51,8 @@ type value_row_t =
   | VText(string)
   | VDetail(string)
   | VExtLink(string)
-  | VCode(string);
+  | VCode(string)
+  | Loading(int, int);
 
 let kvRow = (k, v: value_row_t) => {
   <Row alignItems=`flexStart>
@@ -68,6 +72,7 @@ let kvRow = (k, v: value_row_t) => {
              <div className=Styles.underline> <Text value nowrap=true /> </div>
            </a>
          | VCode(value) => <Text value code=true nowrap=true />
+         | Loading(width, height) => <LoadingCensorBar width height />
          }}
       </div>
     </Col>
@@ -76,16 +81,17 @@ let kvRow = (k, v: value_row_t) => {
 
 module Uptime = {
   [@react.component]
-  let make = (~consensusAddress) =>
-    {
-      let%Sub uptimeOpt = ValidatorSub.getUptime(consensusAddress);
-
+  let make = (~consensusAddress) => {
+    let uptimeSub = ValidatorSub.getUptime(consensusAddress);
+    switch (uptimeSub) {
+    | Data(uptimeOpt) =>
       switch (uptimeOpt) {
-      | Some(uptime) => kvRow("UPTIME", VCode(uptime->Format.fPercent)) |> Sub.resolve
-      | None => kvRow("UPTIME", VText("N/A")) |> Sub.resolve
-      };
-    }
-    |> Sub.default(_, React.null);
+      | Some(uptime) => kvRow("UPTIME", VCode(uptime->Format.fPercent))
+      | None => kvRow("UPTIME", VText("N/A"))
+      }
+    | _ => kvRow("UPTIME", Loading(100, 16))
+    };
+  };
 };
 
 [@react.component]
@@ -93,15 +99,13 @@ let make = (~address, ~hashtag: Route.validator_tab_t) =>
   {
     let validatorSub = ValidatorSub.get(address);
     let bondedTokenCountSub = ValidatorSub.getTotalBondedAmount();
-    let%Sub validator = validatorSub;
-    let%Sub rawBondedTokenCount = bondedTokenCountSub;
 
-    let bondedTokenCount = rawBondedTokenCount.amount;
+    let allSub = Sub.all2(validatorSub, bondedTokenCountSub);
 
     <>
       <Row justify=Row.Between>
         <Col>
-          <div className=Styles.vFlex>
+          <div className={Css.merge([Styles.vFlex, Styles.header])}>
             <img src=Images.validatorLogo className=Styles.logo />
             <Text
               value="VALIDATOR DETAILS"
@@ -114,56 +118,116 @@ let make = (~address, ~hashtag: Route.validator_tab_t) =>
               block=true
             />
             <div className=Styles.seperatedLine />
-            <Text
-              value={validator.isActive ? "ACTIVE" : "INACTIVE"}
-              size=Text.Md
-              weight=Text.Thin
-              spacing={Text.Em(0.06)}
-              color=Colors.gray7
-              nowrap=true
-            />
+            {switch (allSub) {
+             | Data((validator, _)) =>
+               <>
+                 <Text
+                   value={validator.isActive ? "ACTIVE" : "INACTIVE"}
+                   size=Text.Md
+                   weight=Text.Thin
+                   spacing={Text.Em(0.06)}
+                   color=Colors.gray7
+                   nowrap=true
+                 />
+                 <HSpacing size=Spacing.md />
+                 <img
+                   src={
+                     validator.isActive ? Images.activeValidatorLogo : Images.inactiveValidatorLogo
+                   }
+                   className=Styles.logoSmall
+                 />
+               </>
+             | _ => <LoadingCensorBar width=80 height=24 />
+             }}
             <HSpacing size=Spacing.md />
-            <img
-              src={validator.isActive ? Images.activeValidatorLogo : Images.inactiveValidatorLogo}
-              className=Styles.logoSmall
-            />
           </div>
         </Col>
       </Row>
       <VSpacing size=Spacing.xl />
       <div className=Styles.vFlex>
-        <Text value={validator.moniker} size=Text.Xxl weight=Text.Bold nowrap=true />
+        {switch (allSub) {
+         | Data((validator, _)) =>
+           <Text value={validator.moniker} size=Text.Xxl weight=Text.Bold nowrap=true />
+         | _ => <LoadingCensorBar width=150 height=16 />
+         }}
       </div>
       <VSpacing size=Spacing.xl />
-      <ValidatorStakingInfo validatorAddress={validator.operatorAddress} />
+      <ValidatorStakingInfo validatorAddress=address />
       <VSpacing size=Spacing.md />
       <div className=Styles.topPartWrapper>
         <Text value="INFORMATION" size=Text.Lg weight=Text.Semibold />
         <VSpacing size=Spacing.lg />
-        {kvRow("OPERATOR ADDRESS", VValidatorAddress(address))}
+        {kvRow(
+           "OPERATOR ADDRESS",
+           switch (allSub) {
+           | Data(_) => VValidatorAddress(address)
+           | _ => Loading(360, 16)
+           },
+         )}
         <VSpacing size=Spacing.lg />
-        {kvRow("ADDRESS", VAddress(address))}
+        {kvRow(
+           "ADDRESS",
+           switch (allSub) {
+           | Data(_) => VAddress(address)
+           | _ => Loading(310, 16)
+           },
+         )}
         <VSpacing size=Spacing.lg />
         {kvRow(
            "VOTING POWER",
-           VCode(
-             (bondedTokenCount > 0. ? validator.votingPower *. 100. /. bondedTokenCount : 0.)
-             ->Format.fPretty
-             ++ "% ("
-             ++ (validator.votingPower /. 1e6 |> Format.fPretty)
-             ++ " BAND)",
-           ),
+           switch (allSub) {
+           | Data((validator, bondedTokenCount)) =>
+             VCode(
+               (
+                 bondedTokenCount.amount > 0.
+                   ? validator.votingPower *. 100. /. bondedTokenCount.amount : 0.
+               )
+               ->Format.fPretty
+               ++ "% ("
+               ++ (validator.votingPower /. 1e6 |> Format.fPretty)
+               ++ " BAND)",
+             )
+           | _ => Loading(200, 16)
+           },
          )}
         <VSpacing size=Spacing.lg />
-        {kvRow("COMMISSION", VCode(validator.commission->Format.fPercent))}
+        {kvRow(
+           "COMMISSION",
+           switch (allSub) {
+           | Data((validator, _)) => VCode(validator.commission->Format.fPercent)
+           | _ => Loading(100, 16)
+           },
+         )}
         <VSpacing size=Spacing.lg />
-        {kvRow("BONDED HEIGHT", VCode(validator.bondedHeight->Format.iPretty))}
+        {kvRow(
+           "BONDED HEIGHT",
+           switch (allSub) {
+           | Data((validator, _)) => VCode(validator.bondedHeight->Format.iPretty)
+           | _ => Loading(100, 16)
+           },
+         )}
         <VSpacing size=Spacing.lg />
-        <Uptime consensusAddress={validator.consensusAddress} />
+        {switch (allSub) {
+         | Data((validator, _)) => <Uptime consensusAddress={validator.consensusAddress} />
+
+         | _ => kvRow("UPTIME", Loading(100, 16))
+         }}
         <VSpacing size=Spacing.lg />
-        {kvRow("WEBSITE", VExtLink(validator.website))}
+        {kvRow(
+           "WEBSITE",
+           switch (allSub) {
+           | Data((validator, _)) => VExtLink(validator.website)
+           | _ => Loading(100, 16)
+           },
+         )}
         <VSpacing size=Spacing.lg />
-        {kvRow("DETAILS", VDetail(validator.details))}
+        {kvRow(
+           "DETAILS",
+           switch (allSub) {
+           | Data((validator, _)) => VDetail(validator.details)
+           | _ => Loading(100, 16)
+           },
+         )}
       </div>
       // <div className=Styles.longLine />
       // <div className={Styles.fullWidth(`row)}>
@@ -201,7 +265,12 @@ let make = (~address, ~hashtag: Route.validator_tab_t) =>
         |]
         currentRoute={Route.ValidatorIndexPage(address, hashtag)}>
         {switch (hashtag) {
-         | ProposedBlocks => <ProposedBlocksTable consensusAddress={validator.consensusAddress} />
+         | ProposedBlocks =>
+           switch (validatorSub) {
+           | Data(validator) =>
+             <ProposedBlocksTable consensusAddress={validator.consensusAddress} />
+           | _ => <ProposedBlocksTable.Loading />
+           }
          | Delegators => <DelegatorsTable address />
          | Reports => <ReportsTable address />
          }}
