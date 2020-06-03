@@ -38,6 +38,23 @@ module Styles = {
       paddingLeft(`px(26)),
       paddingRight(`px(46)),
     ]);
+
+  let sortableTHead = isRight =>
+    style([
+      display(`flex),
+      flexDirection(`row),
+      alignItems(`center),
+      cursor(`pointer),
+      justifyContent(isRight ? `flexEnd : `flexStart),
+    ]);
+
+  let sort = style([width(`px(10))]);
+  let downIcon = down =>
+    style([
+      width(`px(8)),
+      marginLeft(`pxFloat(1.6)),
+      transform(`rotate(`deg(down ? 0. : 180.))),
+    ]);
 };
 
 module ToggleButton = {
@@ -96,7 +113,6 @@ let renderBody =
       | _ => rank |> string_of_int
       }
     }>
-    
     <div className=Styles.fullWidth>
       <Row>
         <Col size=0.8>
@@ -203,20 +219,6 @@ let renderBody =
   </TBody>;
 };
 
-let getPrevDay = _ => {
-  (
-    MomentRe.momentNow()
-    |> MomentRe.Moment.subtract(~duration=MomentRe.duration(1., `days))
-    |> MomentRe.Moment.toUnix
-    |> float_of_int
-  )
-  *. 1000.;
-};
-
-let getCurrentDay = _ => {
-  (MomentRe.momentNow() |> MomentRe.Moment.toUnix |> float_of_int) *. 1000.;
-};
-
 let addUptimeOnValidators =
     (validators: array(ValidatorSub.t), votesBlock: array(ValidatorSub.validator_vote_t)) => {
   validators->Belt.Array.map(validator => {
@@ -245,6 +247,167 @@ let addUptimeOnValidators =
           ? None : Some(signedBlock /. (signedBlock +. missedBlock) *. 100.),
     };
   });
+};
+
+type sort_by_t =
+  | NameAsc // a-z
+  | NameDesc // z-a
+  | VotingPowerAsc // low->high
+  | VotingPowerDesc // high->low
+  | CommissionAsc // low->high
+  | CommissionDesc // high->low
+  | UptimeAsc // low->high
+  | UptimeDesc; // high->low;
+
+let sorting = (validators: array(ValidatorSub.t), sortedBy) => {
+  validators
+  ->Belt.List.fromArray
+  ->Belt.List.sort((a, b) => {
+      switch (sortedBy) {
+      | NameAsc =>
+        a.moniker->Js.String.toLocaleLowerCase >= b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1)
+      | NameDesc =>
+        a.moniker->Js.String.toLocaleLowerCase < b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1)
+      | VotingPowerAsc => a.tokens.amount >= b.tokens.amount ? 1 : (-1)
+      | VotingPowerDesc => a.tokens.amount < b.tokens.amount ? 1 : (-1)
+      | CommissionAsc => a.commission >= b.commission ? 1 : (-1)
+      | CommissionDesc => a.commission < b.commission ? 1 : (-1)
+      | UptimeAsc =>
+        a.uptime->Belt.Option.getWithDefault(0.) >= b.uptime->Belt.Option.getWithDefault(0.)
+          ? 1 : (-1)
+      | UptimeDesc =>
+        a.uptime->Belt.Option.getWithDefault(0.) < b.uptime->Belt.Option.getWithDefault(0.)
+          ? 1 : (-1)
+      }
+    })
+  ->Belt.List.toArray;
+};
+
+module SortableTHead = {
+  [@react.component]
+  let make = (~title, ~asc, ~desc, ~toggle, ~sortedBy, ~isRight=true) => {
+    <div className={Styles.sortableTHead(isRight)} onClick={_ => toggle(asc, desc)}>
+      <Text
+        block=true
+        value=title
+        size=Text.Sm
+        weight=Text.Semibold
+        color=Colors.gray6
+        spacing={Text.Em(0.1)}
+      />
+      <HSpacing size=Spacing.xs />
+      {if (sortedBy == asc) {
+         <img src=Images.sortDown className={Styles.downIcon(false)} />;
+       } else if (sortedBy == desc) {
+         <img src=Images.sortDown className={Styles.downIcon(true)} />;
+       } else {
+         <img src=Images.sort className=Styles.sort />;
+       }}
+    </div>;
+  };
+};
+
+module ValidatorList = {
+  [@react.component]
+  let make = (~allSub) => {
+    let (sortedBy, setSortedBy) = React.useState(_ => VotingPowerDesc);
+
+    let toggle = (sortedByAsc, sortedByDesc) =>
+      if (sortedBy == sortedByDesc) {
+        setSortedBy(_ => sortedByAsc);
+      } else {
+        setSortedBy(_ => sortedByDesc);
+      };
+
+    <>
+      <THead>
+        <div className=Styles.fullWidth>
+          <Row>
+            <Col size=0.8 key="RANK">
+              <Text
+                block=true
+                value="RANK"
+                size=Text.Sm
+                weight=Text.Semibold
+                color=Colors.gray6
+                spacing={Text.Em(0.1)}
+              />
+            </Col>
+            <Col size=1.9>
+              <SortableTHead
+                title="VALIDATOR"
+                asc=NameAsc
+                desc=NameDesc
+                toggle
+                sortedBy
+                isRight=false
+              />
+            </Col>
+            <Col size=1.4>
+              <SortableTHead
+                title="VOTING POWER (BAND)"
+                asc=VotingPowerAsc
+                desc=VotingPowerDesc
+                toggle
+                sortedBy
+              />
+            </Col>
+            <Col size=1.2>
+              <SortableTHead
+                title="COMMISSION (%)"
+                asc=CommissionAsc
+                desc=CommissionDesc
+                toggle
+                sortedBy
+              />
+            </Col>
+            <Col size=1.1>
+              <SortableTHead title="UPTIME (%)" asc=UptimeAsc desc=UptimeDesc toggle sortedBy />
+            </Col>
+          </Row>
+        </div>
+      </THead>
+      {switch (allSub) {
+       | ApolloHooks.Subscription.Data((
+           (_, _, bondedTokenCount: Coin.t, _, _),
+           rawValidators,
+           votesBlock,
+         )) =>
+         let validators = addUptimeOnValidators(rawValidators, votesBlock);
+         <>
+           {validators->Belt_Array.size > 0
+              ? validators
+                ->sorting(sortedBy)
+                ->Belt_Array.map(e =>
+                    renderBody(e.rank, Sub.resolve(e), bondedTokenCount.amount)
+                  )
+                ->React.array
+              : <div className=Styles.emptyContainer>
+                  <Text value="No Validators" size=Text.Xxl />
+                </div>}
+           <VSpacing size=Spacing.lg />
+         </>;
+       | _ =>
+         Belt_Array.make(10, ApolloHooks.Subscription.NoData)
+         ->Belt_Array.mapWithIndex((i, noData) => renderBody(i, noData, 1.0))
+         ->React.array
+       }}
+    </>;
+  };
+};
+
+let getPrevDay = _ => {
+  (
+    MomentRe.momentNow()
+    |> MomentRe.Moment.subtract(~duration=MomentRe.duration(1., `days))
+    |> MomentRe.Moment.toUnix
+    |> float_of_int
+  )
+  *. 1000.;
+};
+
+let getCurrentDay = _ => {
+  (MomentRe.momentNow() |> MomentRe.Moment.toUnix |> float_of_int) *. 1000.;
 };
 
 [@react.component]
@@ -383,54 +546,7 @@ let make = () => {
         </Col>
       </Row>
     </div>
-    <THead>
-      <div className=Styles.fullWidth>
-        <Row>
-          {[
-             ("RANK", 0.8),
-             ("VALIDATOR", 1.9),
-             ("VOTING POWER (BAND)", 1.4),
-             ("COMMISSION (%)", 1.2),
-             ("UPTIME (%)", 1.1),
-           ]
-           ->Belt.List.mapWithIndex((idx, (title, size)) => {
-               <Col size key=title>
-                 <Text
-                   block=true
-                   value=title
-                   size=Text.Sm
-                   weight=Text.Semibold
-                   align=?{idx > 1 ? Some(Text.Right) : None}
-                   color=Colors.gray6
-                   spacing={Text.Em(0.1)}
-                 />
-               </Col>
-             })
-           ->Array.of_list
-           ->React.array}
-        </Row>
-      </div>
-    </THead>
-    {switch (allSub) {
-     | Data(((_, _, bondedTokenCount, _, _), rawValidators, votesBlock)) =>
-       let validators = addUptimeOnValidators(rawValidators, votesBlock);
-       <>
-         {validators->Belt_Array.size > 0
-            ? validators
-              ->Belt_Array.mapWithIndex((i, e) =>
-                  renderBody(i + 1, Sub.resolve(e), bondedTokenCount.amount)
-                )
-              ->React.array
-            : <div className=Styles.emptyContainer>
-                <Text value="No Validators" size=Text.Xxl />
-              </div>}
-         <VSpacing size=Spacing.lg />
-       </>;
-     | _ =>
-       Belt_Array.make(10, ApolloHooks.Subscription.NoData)
-       ->Belt_Array.mapWithIndex((i, noData) => renderBody(i, noData, 1.0))
-       ->React.array
-     }}
+    <ValidatorList allSub />
     <VSpacing size=Spacing.lg />
   </>;
 };
