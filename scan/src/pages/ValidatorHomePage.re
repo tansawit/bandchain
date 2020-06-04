@@ -250,35 +250,74 @@ let addUptimeOnValidators =
 };
 
 type sort_by_t =
-  | NameAsc // a-z
-  | NameDesc // z-a
-  | VotingPowerAsc // low->high
-  | VotingPowerDesc // high->low
-  | CommissionAsc // low->high
-  | CommissionDesc // high->low
-  | UptimeAsc // low->high
-  | UptimeDesc; // high->low;
+  | NameAsc
+  | NameDesc
+  | VotingPowerAsc
+  | VotingPowerDesc
+  | CommissionAsc
+  | CommissionDesc
+  | UptimeAsc
+  | UptimeDesc;
+
+let defaultCompare = (a: ValidatorSub.t, b: ValidatorSub.t) =>
+  if (a.tokens != b.tokens) {
+    a.tokens.amount < b.tokens.amount ? 1 : (-1);
+  } else {
+    a.moniker->Js.String.toLocaleLowerCase >= b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1);
+  };
+
+let compare = (defaultCompare, condition, execute) =>
+  if (condition) {
+    execute;
+  } else {
+    defaultCompare();
+  };
 
 let sorting = (validators: array(ValidatorSub.t), sortedBy) => {
   validators
   ->Belt.List.fromArray
   ->Belt.List.sort((a, b) => {
+      let curriedCompare = (condition, execute) =>
+        compare(() => defaultCompare(a, b), condition, execute);
       switch (sortedBy) {
       | NameAsc =>
-        a.moniker->Js.String.toLocaleLowerCase >= b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1)
+        curriedCompare(
+          a.moniker != b.moniker,
+          a.moniker->Js.String.toLocaleLowerCase > b.moniker->Js.String.toLocaleLowerCase
+            ? 1 : (-1),
+        )
       | NameDesc =>
-        a.moniker->Js.String.toLocaleLowerCase < b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1)
-      | VotingPowerAsc => a.tokens.amount >= b.tokens.amount ? 1 : (-1)
-      | VotingPowerDesc => a.tokens.amount < b.tokens.amount ? 1 : (-1)
-      | CommissionAsc => a.commission >= b.commission ? 1 : (-1)
-      | CommissionDesc => a.commission < b.commission ? 1 : (-1)
+        curriedCompare(
+          a.moniker != b.moniker,
+          a.moniker->Js.String.toLocaleLowerCase < b.moniker->Js.String.toLocaleLowerCase
+            ? 1 : (-1),
+        )
+      | VotingPowerAsc =>
+        if (a.tokens != b.tokens) {
+          a.tokens.amount > b.tokens.amount ? 1 : (-1);
+        } else {
+          defaultCompare(a, b);
+        }
+      | VotingPowerDesc => defaultCompare(a, b)
+      | CommissionAsc =>
+        if (a.commission != b.commission) {
+          a.commission > b.commission ? 1 : (-1);
+        } else {
+          defaultCompare(a, b);
+        }
+      | CommissionDesc =>
+        if (a.commission != b.commission) {
+          a.commission < b.commission ? 1 : (-1);
+        } else {
+          defaultCompare(a, b);
+        }
       | UptimeAsc =>
         a.uptime->Belt.Option.getWithDefault(0.) >= b.uptime->Belt.Option.getWithDefault(0.)
           ? 1 : (-1)
       | UptimeDesc =>
         a.uptime->Belt.Option.getWithDefault(0.) < b.uptime->Belt.Option.getWithDefault(0.)
           ? 1 : (-1)
-      }
+      };
     })
   ->Belt.List.toArray;
 };
