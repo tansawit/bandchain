@@ -259,64 +259,43 @@ type sort_by_t =
   | UptimeAsc
   | UptimeDesc;
 
+let compareString = (a, b) => Js.String.localeCompare(a, b) |> int_of_float;
+
 let defaultCompare = (a: ValidatorSub.t, b: ValidatorSub.t) =>
   if (a.tokens != b.tokens) {
-    a.tokens.amount < b.tokens.amount ? 1 : (-1);
+    compare(b.tokens, a.tokens);
   } else {
-    a.moniker->Js.String.toLocaleLowerCase >= b.moniker->Js.String.toLocaleLowerCase ? 1 : (-1);
-  };
-
-let compare = (defaultCompare, condition, execute) =>
-  if (condition) {
-    execute;
-  } else {
-    defaultCompare();
+    compareString(b.moniker, a.moniker);
   };
 
 let sorting = (validators: array(ValidatorSub.t), sortedBy) => {
   validators
   ->Belt.List.fromArray
   ->Belt.List.sort((a, b) => {
-      let curriedCompare = (condition, execute) =>
-        compare(() => defaultCompare(a, b), condition, execute);
-      switch (sortedBy) {
-      | NameAsc =>
-        curriedCompare(
-          a.moniker != b.moniker,
-          a.moniker->Js.String.toLocaleLowerCase > b.moniker->Js.String.toLocaleLowerCase
-            ? 1 : (-1),
-        )
-      | NameDesc =>
-        curriedCompare(
-          a.moniker != b.moniker,
-          a.moniker->Js.String.toLocaleLowerCase < b.moniker->Js.String.toLocaleLowerCase
-            ? 1 : (-1),
-        )
-      | VotingPowerAsc =>
-        if (a.tokens != b.tokens) {
-          a.tokens.amount > b.tokens.amount ? 1 : (-1);
-        } else {
-          defaultCompare(a, b);
-        }
-      | VotingPowerDesc => defaultCompare(a, b)
-      | CommissionAsc =>
-        if (a.commission != b.commission) {
-          a.commission > b.commission ? 1 : (-1);
-        } else {
-          defaultCompare(a, b);
-        }
-      | CommissionDesc =>
-        if (a.commission != b.commission) {
-          a.commission < b.commission ? 1 : (-1);
-        } else {
-          defaultCompare(a, b);
-        }
-      | UptimeAsc =>
-        a.uptime->Belt.Option.getWithDefault(0.) >= b.uptime->Belt.Option.getWithDefault(0.)
-          ? 1 : (-1)
-      | UptimeDesc =>
-        a.uptime->Belt.Option.getWithDefault(0.) < b.uptime->Belt.Option.getWithDefault(0.)
-          ? 1 : (-1)
+      let result = {
+        switch (sortedBy) {
+        | NameAsc => compareString(a.moniker, b.moniker)
+        | NameDesc => compareString(b.moniker, a.moniker)
+        | VotingPowerAsc => compare(a.tokens, b.tokens)
+        | VotingPowerDesc => compare(b.tokens, a.tokens)
+        | CommissionAsc => compare(a.commission, b.commission)
+        | CommissionDesc => compare(b.commission, a.commission)
+        | UptimeAsc =>
+          compare(
+            a.uptime->Belt.Option.getWithDefault(0.),
+            b.uptime->Belt.Option.getWithDefault(0.),
+          )
+        | UptimeDesc =>
+          compare(
+            b.uptime->Belt.Option.getWithDefault(0.),
+            a.uptime->Belt.Option.getWithDefault(0.),
+          )
+        };
+      };
+      if (result != 0) {
+        result;
+      } else {
+        defaultCompare(a, b);
       };
     })
   ->Belt.List.toArray;
