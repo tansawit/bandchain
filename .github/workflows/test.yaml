@@ -1,13 +1,10 @@
 name: Merge PR
 on:
-  pull_request:
-    types: [closed]
+  push
 jobs:
   merge-PR:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Dump GitHub context
-         env:
-           GITHUB_CONTEXT: ${{ toJson(github) }}
-         run: echo "$GITHUB_CONTEXT"
+      - name: Runs pwd
+        run: pwd
