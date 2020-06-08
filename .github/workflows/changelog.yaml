@@ -1,4 +1,4 @@
-name: Auto Update Changelog
+name: Changelog
 on:
   pull_request:
     types: [opened]
@@ -14,7 +14,7 @@ jobs:
         uses: khan/pull-request-comment-trigger@master
         id: check
         with:
-          trigger: 'UPDATE'
+          trigger: '#update'
           reaction: rocket
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
@@ -32,13 +32,13 @@ jobs:
         id: findPr
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Update CHANGELOG.md
         run: python3 .github/workflows/changelog.py
         if: success() && steps.findPr.outputs.body && steps.findPr.outputs.number
         env:
-          PR_NUMBER: "${{ steps.findPr.outputs.number }}"
-          PR_BODY: "${{ steps.findPr.outputs.body }}"
+          PR_NUMBER: '${{ steps.findPr.outputs.number }}'
+          PR_BODY: '${{ steps.findPr.outputs.body }}'
 
       - name: Set Git config
         run: git config --global user.email "changelog@bandprotocol.com" && git config --global user.name "Auto-update Changelog"
@@ -46,10 +46,10 @@ jobs:
       - name: Get current Git branch
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
         id: extract_branch
-      
+
       - name: Stage changed files
         run: git add .
-      
+
       - name: Commit changed files
         run: git commit -m "Auto-updating CHANGELOG.md"
 
