@@ -21,6 +21,7 @@
 
 ### Scan
 
+- (feat) [\#9](https://https://github.com/bandprotocol/bandchain/pull/9)  test workflow
 - (('feat',)) [\#8](https://https://github.com/bandprotocol/bandchain/pull/8)  test workflow
 - (feat) [\#1](https://https://github.com/bandprotocol/bandchain/pull/1)  test getting PR body
 - (fea) [\#1](https://https://github.com/bandprotocol/bandchain/pull/1)  test getting PR body
