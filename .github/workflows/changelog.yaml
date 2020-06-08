@@ -1,4 +1,4 @@
-name: Merge PR
+name: Auto Update Changelog
 on:
   pull_request:
     types: [closed]
