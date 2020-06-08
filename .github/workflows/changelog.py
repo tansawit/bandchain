@@ -66,7 +66,7 @@ def append_changelog(prNumber, changedComponent, changeType, prDescription):
 if __name__ == "__main__":
     prNumber = os.getenv("PR_NUMBER")
     changedComponent = os.getenv("PR_BODY").split("\n")[2].split(":")[0]
-    prChangeType = (os.getenv("PR_BODY").split("\n")[1][:-1],)
+    prChangeType = os.getenv("PR_BODY").split("\n")[1]
     prDescription = os.getenv("PR_BODY").split("\n")[2].split(":")[1]
     append_changelog(
         prNumber, changedComponent, prChangeType, prDescription,
