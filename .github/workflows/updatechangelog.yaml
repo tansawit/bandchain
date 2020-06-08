@@ -1,5 +1,6 @@
 name: Pull Request Comment Trigger Example
 on:
+  push
   issue_comment:
     types: [created]
 
