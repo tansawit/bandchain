@@ -1,4 +1,4 @@
-name: Changelog
+name: Pull Request Comment Trigger Example
 on:
   pull_request:
     types: [opened]
@@ -6,55 +6,12 @@ on:
     types: [created]
 
 jobs:
-  check-status:
+  hello:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check for trigger
-        uses: khan/pull-request-comment-trigger@master
+      - uses: khan/pull-request-comment-trigger@master
         id: check
         with:
-          trigger: '#update'
-          reaction: rocket
-        env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-
-  update-changelog:
-    if: steps.check.outputs.triggered == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Code Checkout
-        uses: actions/checkout@v2
-
-      - name: Get pull request info
-        uses: jwalton/gh-find-current-pr@v1
-        id: findPr
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update CHANGELOG.md
-        run: python3 .github/workflows/changelog.py
-        if: success() && steps.findPr.outputs.body && steps.findPr.outputs.number
-        env:
-          PR_NUMBER: '${{ steps.findPr.outputs.number }}'
-          PR_BODY: '${{ steps.findPr.outputs.body }}'
-
-      - name: Set Git config
-        run: git config --global user.email "changelog@bandprotocol.com" && git config --global user.name "Auto-update Changelog"
-
-      - name: Get current Git branch
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch
-
-      - name: Stage changed files
-        run: git add .
-
-      - name: Commit changed files
-        run: git commit -m "Auto-updating CHANGELOG.md"
-
-      - name: Push changes # push the output folder to your repo
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.extract_branch.outputs.branch }}
+          trigger: '#hello'
+      - run: 'echo Found it!'
+        if: steps.check.outputs.triggered == 'true'
