@@ -1,12 +1,11 @@
-name: Append Changelog
+name: Merge PR
 on:
   pull_request:
     types: [closed]
-
 jobs:
-  get-pr-name:
+  merge-PR:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == 'true'
 
     steps:
       - name: Code Checkout
