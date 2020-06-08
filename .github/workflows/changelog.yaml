@@ -1,10 +1,21 @@
 name: Auto Update Changelog
 on:
   pull_request:
-    types: [closed]
+    types: [opened]
+  issue_comment:
+    types: [created]
 jobs:
-  merge-PR:
-    if: github.event.pull_request.merged == true
+  check-status:
+    - uses: khan/pull-request-comment-trigger@master
+      id: check
+      with:
+        trigger: '@changelog/update'
+        reaction: rocket
+      env:
+        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+  update-changelog:
+    if: steps.check.outputs.triggered == 'true'
     runs-on: ubuntu-latest
 
     steps:
