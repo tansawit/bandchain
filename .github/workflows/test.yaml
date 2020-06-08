@@ -1,6 +1,7 @@
 name: Merge PR
 on:
-  push
+  pull_request:
+    types: [closed]
 jobs:
   merge-PR:
     if: github.event.pull_request.merged == true
