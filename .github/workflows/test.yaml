@@ -7,5 +7,5 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Dump GitHub context
-         run: echo "TEST"
+      - name: Runs pwd
+        run: pwd
