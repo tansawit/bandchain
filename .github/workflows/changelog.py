@@ -13,9 +13,9 @@ def generate_substitute(content, header, number, component, changeType, descript
 
 
 def append_changelog(prNumber, changedComponent, changeType, prDescription):
-    read = open("DEMOCHANGELOG.md", "r+")
-    content = read.read()
-    read.close()
+    readfile = open("DEMOCHANGELOG.md", "r+")
+    content = readfile.readfile()
+    readfile.close()
     with open("DEMOCHANGELOG.md", "w") as f:
         content_new = ""
         changedComponent = changedComponent.lower()
