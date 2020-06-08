@@ -6,17 +6,17 @@ on:
     types: [created]
 jobs:
   check-status:
-  runs-on: ubuntu-latest
-
-  steps:
-    - name: Check for trigger
-      uses: khan/pull-request-comment-trigger@master
-      id: check
-      with:
-        trigger: '@changelog/update'
-        reaction: rocket
-      env:
-        GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check for trigger
+        uses: khan/pull-request-comment-trigger@master
+        id: check
+        with:
+          trigger: '@changelog/update'
+          reaction: rocket
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   update-changelog:
     if: steps.check.outputs.triggered == 'true'
