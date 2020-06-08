@@ -6,7 +6,11 @@ on:
     types: [created]
 jobs:
   check-status:
-    - uses: khan/pull-request-comment-trigger@master
+  runs-on: ubuntu-latest
+
+  steps:
+    - name: Check for trigger
+      uses: khan/pull-request-comment-trigger@master
       id: check
       with:
         trigger: '@changelog/update'
